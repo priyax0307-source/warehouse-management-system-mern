@@ -9,7 +9,11 @@ import api from './routes.js';
 
 const app = express();
 app.use(helmet());
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173' }));
+const clientOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5174')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+app.use(cors({ origin: clientOrigins }));
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('dev'));
 app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, limit: 100 }));

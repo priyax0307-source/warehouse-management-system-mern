@@ -16,7 +16,7 @@ A MERN implementation of the features described in the project report: persisten
 
 ## Deploy
 
-GitHub Pages hosts the React client only. The Express API and MongoDB must run separately; this repository includes a GitHub Pages workflow and a Render Blueprint for the API.
+GitHub Pages or Vercel hosts the React client only. The Express API and MongoDB run separately; this repository includes a GitHub Pages workflow and a Render Blueprint for the API.
 
 1. Push this repository to GitHub on the `main` branch.
 2. In GitHub, enable Pages with **GitHub Actions** as the publishing source.
@@ -24,7 +24,14 @@ GitHub Pages hosts the React client only. The Express API and MongoDB must run s
 4. Copy the deployed API URL from Render. In the GitHub repository, add an Actions variable named `VITE_API_URL` with the API URL ending in `/api`, such as `https://your-api.onrender.com/api`.
 5. Run the **Deploy Stockroom client to GitHub Pages** workflow. The site is published when the workflow succeeds.
 
-Never commit `.env` files, MongoDB connection strings, or JWT secrets. GitHub Pages does not run the Express server.
+### Deploy the client to Vercel
+
+1. Import this GitHub repository in Vercel and set the project **Root Directory** to `client`.
+2. Use the Vite defaults: build command `npm run build` and output directory `dist`.
+3. Add `VITE_API_URL` as an environment variable with the Render API URL ending in `/api`, such as `https://your-api.onrender.com/api`, then deploy.
+4. After Vercel assigns the production domain, update the Render API's `CLIENT_ORIGIN` variable to a comma-separated list of the frontend origins you use, with no path or trailing slash. For example: `https://your-user.github.io,https://your-project.vercel.app`.
+
+Never commit `.env` files, MongoDB connection strings, or JWT secrets. GitHub Pages and Vercel do not run the Express server.
 
 ## Sample warehouse data
 
