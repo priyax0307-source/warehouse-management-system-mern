@@ -29,5 +29,5 @@ app.use((err, _req, res, _next) => {
 const port = Number(process.env.PORT || 5000);
 if (!process.env.MONGODB_URI || !process.env.JWT_SECRET) throw new Error('Set MONGODB_URI and JWT_SECRET in server/.env');
 await mongoose.connect(process.env.MONGODB_URI);
-if (process.env.SEED_DEMO_DATA === 'true') await seedIfEmpty();
+if (process.env.NODE_ENV === 'production' || process.env.SEED_DEMO_DATA === 'true') await seedIfEmpty();
 app.listen(port, () => console.log(`WMS API listening on http://localhost:${port}`));
