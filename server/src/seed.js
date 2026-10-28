@@ -1,17 +1,15 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
+import { pathToFileURL } from 'node:url';
 import { Activity, Bin, CycleCount, Dispatch, Inventory, Picking, Product, Receiving, Warehouse } from './models.js';
 
-if (!process.env.MONGODB_URI) throw new Error('Set MONGODB_URI in server/.env');
-await mongoose.connect(process.env.MONGODB_URI);
-
-const collections = [Product, Warehouse, Bin, Inventory, Receiving, Picking, Dispatch, CycleCount];
-const existing = await Promise.all(collections.map(Model => Model.countDocuments()));
-if (existing.some(Boolean)) {
-  console.log('Seed skipped: the Stockroom database already contains warehouse records.');
-  await mongoose.disconnect();
-  process.exit(0);
-}
+export async function seedIfEmpty() {
+  const collections = [Product, Warehouse, Bin, Inventory, Receiving, Picking, Dispatch, CycleCount];
+  const existing = await Promise.all(collections.map(Model => Model.countDocuments()));
+  if (existing.some(Boolean)) {
+    console.log('Seed skipped: the Stockroom database already contains warehouse records.');
+    return false;
+  }
 
 const ago = days => new Date(Date.now() - days * 864e5);
 const productsData = [
@@ -75,5 +73,13 @@ await Activity.insertMany([
   {action:'Orders prepared',module:'Dispatch',description:'Sample customer orders added for dispatch tracking.'},
   {action:'Cycle count opened',module:'Cycle counts',description:'CC-2026-0001 opened for a stock verification example.'},
 ].map((row,i)=>({...row,createdAt:ago(i),updatedAt:ago(i)})));
-console.log(`Seed complete: ${products.length} products, ${warehouses.length} warehouses, ${bins.length} bins, ${stockRows.length} stock records, ${inbound.length} receipts, ${pickingRows.length} pick tasks, 6 dispatch orders.`);
-await mongoose.disconnect();
+  console.log(`Seed complete: ${products.length} products, ${warehouses.length} warehouses, ${bins.length} bins, ${stockRows.length} stock records, ${inbound.length} receipts, ${pickingRows.length} pick tasks, 6 dispatch orders.`);
+  return true;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (!process.env.MONGODB_URI) throw new Error('Set MONGODB_URI in server/.env');
+  await mongoose.connect(process.env.MONGODB_URI);
+  try { await seedIfEmpty(); }
+  finally { await mongoose.disconnect(); }
+}
