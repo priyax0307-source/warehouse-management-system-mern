@@ -36,7 +36,7 @@ api.patch('/users/:id/role', requireAdmin, asyncRoute(async (req, res) => {
 const models = { products: Product, warehouses: Warehouse, bins: Bin, inventory: Inventory, receiving: Receiving, picking: Picking, dispatch: Dispatch, cycleCounts: CycleCount, activity: Activity };
 for (const [key, Model] of Object.entries(models)) {
   api.get(`/${key}`, asyncRoute(async (req, res) => {
-    const filter = key === 'products' && req.query.includeArchived !== 'true' ? { archived: false } : {};
+    const filter = key === 'products' && req.query.includeArchived !== 'true' ? { archived: { $ne: true } } : {};
     const rows = await Model.find(filter).sort({ createdAt: -1 }).limit(500).lean();
     const refs = key === 'inventory' ? ['product', 'bin'] : key === 'bins' ? ['warehouse'] : key === 'dispatch' ? ['product', 'user'] : key === 'activity' ? ['user'] : ['product', 'bin', 'user'];
     const populated = ['inventory', 'receiving', 'picking', 'dispatch', 'cycleCounts', 'bins', 'activity'].includes(key)
@@ -54,7 +54,7 @@ api.post('/warehouses', asyncRoute(async (req, res) => res.status(201).json(awai
 api.post('/bins', asyncRoute(async (req, res) => res.status(201).json(await Bin.create(req.body))));
 api.post('/cycle-counts', asyncRoute(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.body.product) || !mongoose.Types.ObjectId.isValid(req.body.bin)) return res.status(400).json({ message: 'Choose a valid product and bin.' });
-  const [product, bin] = await Promise.all([Product.findOne({ _id: req.body.product, archived: false }), Bin.findOne({ _id: req.body.bin, status: 'Active' })]);
+  const [product, bin] = await Promise.all([Product.findOne({ _id: req.body.product, archived: { $ne: true } }), Bin.findOne({ _id: req.body.bin, status: 'Active' })]);
   if (!product) return res.status(404).json({ message: 'Product not found or archived.' });
   if (!bin) return res.status(404).json({ message: 'Choose an active bin.' });
   const rows = await Inventory.find({ product: product._id, bin: bin._id }).select('quantity');
@@ -69,7 +69,7 @@ api.post('/search', asyncRoute(async (req, res) => {
   const safe = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const rx = new RegExp(safe, 'i');
   const [products, bins, warehouses, receiving, dispatch, cycleCounts] = await Promise.all([
-    Product.find({ archived: false, $or: [{ name: rx }, { code: rx }] }).limit(5), Bin.find({ code: rx }).populate('warehouse').limit(5),
+    Product.find({ archived: { $ne: true }, $or: [{ name: rx }, { code: rx }] }).limit(5), Bin.find({ code: rx }).populate('warehouse').limit(5),
     Warehouse.find({ name: rx }).limit(5), Receiving.find({ supplier: rx }).populate('product').limit(5), Dispatch.find({ $or: [{ customer: rx }, { orderNumber: rx }] }).limit(5),
     CycleCount.find({ reference: rx }).populate('product').populate('bin').limit(5)
   ]);
@@ -79,14 +79,14 @@ api.post('/search', asyncRoute(async (req, res) => {
 api.get('/dashboard', asyncRoute(async (_req, res) => {
   const weekStart = new Date(); weekStart.setHours(0, 0, 0, 0); weekStart.setDate(weekStart.getDate() - 6);
   const [products, warehouses, bins, stock, pickings, receiving, dispatch, activities] = await Promise.all([
-    Product.countDocuments({ archived: false }), Warehouse.countDocuments({ status: 'Active' }), Bin.countDocuments({ status: 'Active' }),
+    Product.countDocuments({ archived: { $ne: true } }), Warehouse.countDocuments({ status: 'Active' }), Bin.countDocuments({ status: 'Active' }),
     Inventory.find().populate('product').populate({ path: 'bin', populate: { path: 'warehouse' } }).lean(),
     Picking.find({ status: { $in: ['Open', 'In Progress'] } }).populate('product').populate('bin').sort({ priority: -1, createdAt: -1 }).limit(6),
     Receiving.find().populate('product').populate('bin').sort({ createdAt: -1 }).limit(5), Dispatch.find().populate('product').sort({ createdAt: -1 }).limit(5),
     Activity.find().populate('user', 'name').sort({ createdAt: -1 }).limit(8)
   ]);
   const sums = new Map(); for (const row of stock) sums.set(String(row.product?._id), (sums.get(String(row.product?._id)) || 0) + row.quantity);
-  const productDocs = await Product.find({ archived: false }).lean();
+  const productDocs = await Product.find({ archived: { $ne: true } }).lean();
   const lowStock = productDocs.filter(p => (sums.get(String(p._id)) || 0) <= p.reorderLevel).map(p => ({ ...p, quantity: sums.get(String(p._id)) || 0 }));
   const soon = new Date(Date.now() + 30 * 864e5);
   const expiryAlerts = stock.filter(x => x.quantity > 0 && x.expiryDate && x.expiryDate <= soon).slice(0, 8);
